@@ -1,0 +1,12 @@
+[project]
+name = "voiceagent"
+version = "0.1.0"
+description = "Dependencies for launching llm"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "dotenv>=0.9.9",
+    "huggingface-hub>=1.21.0",
+    "torch>=2.12.1",
+    "transformers>=5.12.1",
+]
