@@ -40,10 +40,3 @@ class VoiceChat:
                 sd.play(audio[0], samplerate = self.sample_rate)
                 sd.wait()
 
-
-
-if __name__ == "__main__":
-    voicechat = VoiceChat()
-    voicechat.process()
-
-
