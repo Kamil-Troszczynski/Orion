@@ -1,22 +1,24 @@
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from RealtimeSTT import AudioToTextRecorder
 from omnivoice import OmniVoice
 from ollama import chat
-import soundfile as sf
+import sounddevice as sd
 import torch
 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 
 class VoiceChat:
     def __init__(self, 
-                 stt_id: str = "openai/whisper-large-v3", 
+                 stt_id: str = "tiny", 
                  moe_id: str = "qwen3:8b",
                  tts_id: str = "k2-fsa/OmniVoice",
+                 sample_rate: int = 24000,
                  instruction: str = "female, low pitch, british accent"):
 
-        self.speech2text = self.stt(stt_id)
+        self.recorder = AudioToTextRecorder(model = stt_id, device = "cpu", compute_type = "int8")
+        self.sample_rate = sample_rate
         self.response = lambda transcribed_text : chat(
             model = moe_id,
             messages = [
@@ -27,39 +29,21 @@ class VoiceChat:
         self.audio = lambda response : self.text2speech.generate(text = response["message"]["content"], 
                                                             instruct = instruction)
 
-    def stt(self, stt_id: str, 
-            chunk_length_s: int = 50, 
-            batch_size: int = 50) -> pipeline:
-        
-        speech_seq2seq = AutoModelForSpeechSeq2Seq.from_pretrained(
-            stt_id, 
-            dtype = torch_dtype, 
-            low_cpu_mem_usage = True, 
-            use_safetensors = True).to(device)
-        
-        processor = AutoProcessor.from_pretrained(stt_id)
+    def process(self) -> None:
+        with self.recorder:
+            while True:
+                text = self.recorder.text()
+                if not text or not text.strip():
+                    continue
+                moe_answer = self.response(text)
+                audio = self.audio(moe_answer)
+                sd.play(audio[0], samplerate = self.sample_rate)
+                sd.wait()
 
-        return pipeline(
-            "automatic-speech-recognition",
-            model = speech_seq2seq,
-            tokenizer = processor.tokenizer,
-            feature_extractor = processor.feature_extractor,
-            chunk_length_s = chunk_length_s,
-            batch_size = batch_size,
-            dtype = torch_dtype,
-            device = device,
-        )        
-
-    def process(self, x: str, y: str = 'out.wav') -> None:
-        encoded_speech = self.speech2text(x)
-        transcribed_text = encoded_speech['text']
-        moe_answer = self.response(transcribed_text)
-        audio = self.audio(moe_answer)
-        sf.write(y, audio[0], 24000)
 
 
 if __name__ == "__main__":
     voicechat = VoiceChat()
-    voicechat.process('in.mp3')
+    voicechat.process()
 
 
