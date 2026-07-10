@@ -77,7 +77,6 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             stt,
             user_aggregator,
             llm,
-            
             tts,
             transport.output(),
             assistant_aggregator,
