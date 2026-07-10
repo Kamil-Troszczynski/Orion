@@ -1,6 +1,6 @@
-from voice_chat import VoiceChat
+from src.pipeline import *
 
 
 if __name__ == "__main__":
-    voicechat = VoiceChat()
-    voicechat.process()
+    from pipecat.runner.run import main
+    main()
