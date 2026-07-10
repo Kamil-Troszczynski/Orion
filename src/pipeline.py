@@ -13,7 +13,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.runner.types import RunnerArguments
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService, LiveOptions
-from pipecat.services.openai.llm import OpenAILLMService
+from pipecat.services.openai.llm import OpenAILLMService, BaseOpenAILLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
@@ -43,15 +43,21 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         live_options=live_options,
     )
 
+    instruction = "Jesteś pomocnym asystentem AI i nazywasz się Orion. "
+
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
+        params=BaseOpenAILLMService.InputParams(
+            temperature=0.75
+        ),
         settings=OpenAILLMService.Settings(
-            system_instruction="Jesteś pomocnym asystentem AI.",
+            system_instruction=instruction,
         ),
     )
     tts = CartesiaTTSService(
         api_key=os.getenv("CARTESIA_API_KEY"),
         settings=CartesiaTTSService.Settings(
+            model="sonic-3.5",
             voice="d358377a-cd1d-45c5-abd0-701314e36cbe",
             language=Language.PL
         ),
