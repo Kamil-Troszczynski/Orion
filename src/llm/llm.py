@@ -40,6 +40,6 @@ class LLM:
     def get_llm(self) -> OpenAILLMService:
       return OpenAILLMService(api_key = self.api_key, params = self.llm_parameters, settings = self.instruction)  
 
-    def get_aggregators(self, vad_analyzer) -> LLMContextAggregatorPair:
-        context = LLMContext()
+    def get_aggregators(self, tools, vad_analyzer) -> LLMContextAggregatorPair:
+        context = LLMContext(tools = tools)
         return LLMContextAggregatorPair(context, user_params = LLMUserAggregatorParams(vad_analyzer = vad_analyzer))
