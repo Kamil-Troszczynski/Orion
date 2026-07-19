@@ -6,7 +6,7 @@ from pipecat.services.llm_service import FunctionCallParams
 from pipecat.adapters.schemas.direct_function import tool_options
 
 
-class WebSearchException(Exception):
+class WebSearchServiceException(Exception):
     def __init__(self, message: str, error_code: str):
         self.message = message
         self.error_code = error_code
@@ -16,20 +16,17 @@ class WebSearchException(Exception):
         return f"{self.message} (Error Code: {self.error_code})"
 
 
-SearchMode = Literal["fast", "medium", "research"]
-
-
 @dataclass
-class WebSearchParameters:
-    count: int = 8,
-    maximum_number_of_urls: int = 3,
-    maximum_number_of_tokens: int = 2048,
-    maximum_number_of_tokens_per_url: int = 1024,
-    maximum_number_of_snippets: int = 8,
-    maximum_number_of_snippets_per_url: int = 2,
-    context_threshold_mode: str = "strict",
-    enable_local: bool = False,
-    timeout: int = 8,
+class WebSearchServiceParameters:
+    count: int = 8
+    maximum_number_of_urls: int = 3
+    maximum_number_of_tokens: int = 2048
+    maximum_number_of_tokens_per_url: int = 1024
+    maximum_number_of_snippets: int = 8
+    maximum_number_of_snippets_per_url: int = 2
+    context_threshold_mode: str = "strict"
+    enable_local: bool = False
+    timeout: int = 8
  
     @classmethod
     def medium(cls) -> "WebSearchParameters":
@@ -60,31 +57,33 @@ class WebSearchParameters:
         )
 
 
-class WebSearch:
-    def __init__(self, query: str = None, web_search_params: WebSearchParameters = None):
-        web_search_params = web_search_params or WebSearchParameters()
-        self.url = 'https://api.search.brave.com/res/v1/llm/context'
-        self.headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": os.environ['BRAVE_SEARCH_API_KEY']
-        }
-        self.parameters = {
-            "q": query, 
-            "maximum_number_of_urls": web_search_params.maximum_number_of_urls,
-            "maximum_number_of_tokens": web_search_params.maximum_number_of_tokens,
-            "maximum_number_of_tokens_per_url": web_search_params.maximum_number_of_tokens_per_url,
-            "maximum_number_of_snippets": web_search_params.maximum_number_of_snippets,
-            "maximum_number_of_snippets_per_url": web_search_params.maximum_number_of_snippets_per_url,
-            "context_threshold_mode": web_search_params.context_threshold_mode,
-            "enable_local": web_search_params.enable_local
-        }
-        self.timeout = web_search_params.timeout
+URL = 'https://api.search.brave.com/res/v1/llm/context'
+HEADERS = {
+    "Accept": "application/json",
+    "Accept-Encoding": "gzip",
+    "X-Subscription-Token": os.environ['BRAVE_SEARCH_API_KEY']
+}
 
-    async def get_response(self) -> dict:
+
+class WebSearchService:
+    def __init__(self, web_search_service_params: WebSearchServiceParameters = None):
+        web_search_service_params = web_search_service_params or WebSearchServiceParameters()
+        self.timeout = web_search_service_params.timeout
+        self.parameters = {
+            "maximum_number_of_urls": web_search_service_params.maximum_number_of_urls,
+            "maximum_number_of_tokens": web_search_service_params.maximum_number_of_tokens,
+            "maximum_number_of_tokens_per_url": web_search_service_params.maximum_number_of_tokens_per_url,
+            "maximum_number_of_snippets": web_search_service_params.maximum_number_of_snippets,
+            "maximum_number_of_snippets_per_url": web_search_service_params.maximum_number_of_snippets_per_url,
+            "context_threshold_mode": web_search_service_params.context_threshold_mode,
+            "enable_local": web_search_service_params.enable_local
+        }
+
+    async def __call__(self, query: str) -> dict:
+        self.parameters["q"] = query
         async with httpx.AsyncClient(timeout = self.timeout) as client:
             try:
-                response = await client.get(self.url, params = self.parameters, headers = self.headers)
+                response = await client.get(URL, params = self.parameters, headers = HEADERS)
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
                 raise WebSearchException(f"Brave search API Error: {e.response.status_code}", "http_error")
@@ -93,12 +92,15 @@ class WebSearch:
         return response.json()
 
 
-def resolve_params(mode: SearchMode) -> WebSearchParameters:
+SearchMode = Literal["fast", "medium", "research"]
+
+
+def resolve_params(mode: SearchMode) -> WebSearchServiceParameters:
     if mode == "research":
-        return WebSearchParameters.research()
+        return WebSearchServiceParameters.research()
     if mode == "medium":
-        return WebSearchParameters.medium()
-    return WebSearchParameters()
+        return WebSearchServiceParameters.medium()
+    return WebSearchServiceParameters()
 
 
 @tool_options(cancel_on_interruption = False)
@@ -144,10 +146,10 @@ async def get_answer(params: FunctionCallParams, query: str, mode: SearchMode = 
               "what are the arguments for and against X").
     """
     try:
-        websearch = WebSearch(query, resolve_params(mode))
-        answer = await websearch.get_response()
+        websearch = WebSearchService(resolve_params(mode))
+        answer = await websearch(query)
         await params.result_callback(answer)
-    except WebSearchException as wse:
-        await params.result_callback({"error": str(wse)})
+    except WebSearchServiceException as wse:
+        await params.result_callback({"error": str(wse), "hint": "ask_user_to_clarify_search_question"})
     except Exception as e:
         await params.result_callback({"error": f"Failed to get response: {e}"})
