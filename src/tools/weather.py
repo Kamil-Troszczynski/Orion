@@ -13,7 +13,7 @@ class WeatherException(Exception):
         return f"{self.message} (Error Code: {self.error_code})"
 
 
-async def city2coordinate(location: str, api_key: str, timeout: int, country_code: str = 'PL', limit: int = 1) -> tuple[float, float]:
+async def city2coordinate(location: str, api_key: str, timeout: int, country_code: str = "", limit: int = 1) -> tuple[float, float]:
     query = f'{location},{country_code}'
     url = 'http://api.openweathermap.org/geo/1.0/direct'
     params = {"q": query, "limit": limit, "appid": api_key}
@@ -39,9 +39,9 @@ class Weather:
         self.api_key = os.environ["WEATHER_API_KEY"]
 
     @classmethod
-    async def from_location(cls, location: str) -> "Weather":
+    async def from_location(cls, location: str, country_code: str) -> "Weather":
         api_key = os.environ["WEATHER_API_KEY"]
-        lat, lon = await city2coordinate(location, api_key, self.timeout)
+        lat, lon = await city2coordinate(location, api_key, cls.timeout, country_code)
         return cls(lat, lon)
 
     async def get_weather_params(self, weather_forecast: str) -> dict:
@@ -77,22 +77,29 @@ class Weather:
             "wind_speed_ms": entry.get("wind", {}).get("speed"),
         }
 
-    @staticmethod
-    def _simplify_forecast(data: dict, weather_forecast: str) -> dict:
+    @classmethod
+    def _simplify_forecast(cls, data: dict, weather_forecast: str) -> dict:
         steps = data.get("list", [])
         if not steps:
             return {}
         if weather_forecast == "1_hour_forecast":
-            return self._extract_metrics(steps[0])
+            return cls._extract_metrics(steps[0])
         target_index = min(8, len(steps) - 1)
-        return self._extract_metrics(steps[target_index])
+        return cls._extract_metrics(steps[target_index])
 
 
-async def get_weather(params: FunctionCallParams, location: str, weather_forecast: str):
+async def get_weather(params: FunctionCallParams, location: str, country_code: str, weather_forecast: str):
     """Get the weather for a given city.
 
     Args:
-        location: The city, e.g. "San Francisco".
+        location: The city, e.g. "Warsaw".
+        country_code: The ISO 3166-1 alpha-2 country code (two letters), inferred from
+            whatever country the user mentions - not the raw name they said. Convert it
+            yourself: "Polska"/"Poland" - "PL", "Wielka Brytania"/"United Kingdom" - "GB",
+            "Niemcy"/"Germany" - "DE", etc.
+            Leave this empty if the user doesn't mention a country - only include it when
+            needed to disambiguate a city that exists in multiple countries (e.g. there's
+            more than one "Warsaw" in the world).
         weather_forecast: One of "current", "1_hour_forecast", "1_day_forecast".
 
             Note on accuracy: this uses OpenWeather's free tier, which only provides
@@ -103,7 +110,7 @@ async def get_weather(params: FunctionCallParams, location: str, weather_forecas
             so you don't imply more precision than the data actually has.
     """
     try:
-        weather = await Weather.from_location(location)
+        weather = await Weather.from_location(location, country_code)
         answer = await weather.get_weather_params(weather_forecast)
         await params.result_callback(answer)
     except WeatherException as we:

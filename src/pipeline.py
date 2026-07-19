@@ -36,7 +36,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             transport.input(),
             stt_service,
             user_aggregator,
-            memory_service,
+            # memory_service, - now, it'doesnt work properly
             llm_service,
             tts_service,
             transport.output(),
@@ -47,7 +47,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
-        await task.queue_frame(LLMConfigureOutputFrame(skip_tts = True))
+        await task.queue_frame(LLMConfigureOutputFrame(skip_tts = False))
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):

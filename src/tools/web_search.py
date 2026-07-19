@@ -106,20 +106,20 @@ async def get_answer(params: FunctionCallParams, query: str, mode: SearchMode = 
     """Search the web and return pre-extracted, relevant content to help answer a question.
  
     This call runs asynchronously: you must respond to the user immediately, before the
-    result is available — say something like "Pozwól mi to sprawdzić" (or the equivalent
+    result is available - say something like "Pozwól mi to sprawdzić" (or the equivalent
     in whatever language the conversation is in). Do not guess or answer from your own
     knowledge while waiting; the actual content will arrive afterward and you'll use it
     to answer in your next turn.
  
     If the user says something else in the meantime (asks a different question, changes
     topic) before the result arrives, handle that first, then return to this topic
-    explicitly once you do answer it — e.g. "Wracając do pytania dotyczącego..." (or the
-    equivalent in the conversation's language) — rather than answering out of nowhere as
+    explicitly once you do answer it - e.g. "Wracając do pytania dotyczącego..." (or the
+    equivalent in the conversation's language) - rather than answering out of nowhere as
     if no time had passed.
  
     Grounding: once the result arrives, treat it as your primary source of truth for this
     query, even if it conflicts with what you already "know." Your training data can be
-    outdated or wrong on current events, prices, releases, and similar fast-changing facts —
+    outdated or wrong on current events, prices, releases, and similar fast-changing facts -
     prefer the retrieved content over your own recollection. If the results don't clearly
     answer the question, say so rather than filling the gap from memory.
  
@@ -130,7 +130,7 @@ async def get_answer(params: FunctionCallParams, query: str, mode: SearchMode = 
  
     Args:
         query: The specific question or topic to search for, e.g. "recent machine learning
-            papers" or "latest AI technologies". Keep it focused — one topic per call.
+            papers" or "latest AI technologies". Keep it focused - one topic per call.
         mode: How much search depth and context to retrieve. Choose based on question
             complexity, not user tone:
             - "fast": simple, single-fact lookups with one clear answer
